@@ -16,7 +16,12 @@ def _md_escape_label(s: str | None) -> str:
     return s.replace("]", "］").replace(")", "）")
 
 
-async def gen_embed(tweet: Tweet) -> list[discord.Embed]:
+def _get_media_url(media_url: str, quality: str) -> str:
+    """Append Twitter image quality parameter to a media URL."""
+    return f"{media_url}?name={quality}"
+
+
+async def gen_embed(tweet: Tweet, quality: str = 'orig') -> list[discord.Embed]:
     author = tweet.author
 
     open_tweet = f"[Open Tweet]({tweet.url})"
@@ -36,7 +41,7 @@ async def gen_embed(tweet: Tweet) -> list[discord.Embed]:
     embed.set_thumbnail(url=re.sub(r'normal(?=\.jpg$)', '400x400', tweet.author.profile_image_url_https))
     embed.set_footer(text='Twitter' if configs['embed']['built_in']['legacy_logo'] else 'X', icon_url='attachment://footer.png')
     if len(tweet.media) == 1:
-        embed.set_image(url=tweet.media[0].media_url_https)
+        embed.set_image(url=_get_media_url(tweet.media[0].media_url_https, quality))
         return [embed]
     elif len(tweet.media) > 1:
         if configs['embed']['built_in']['fx_image']:
@@ -47,7 +52,7 @@ async def gen_embed(tweet: Tweet) -> list[discord.Embed]:
             embed.set_image(url=fximage_url)
             return [embed]
         else:
-            imgs_embed = [discord.Embed(url=tweet.url).set_image(url=media.media_url_https) for media in tweet.media]
+            imgs_embed = [discord.Embed(url=tweet.url).set_image(url=_get_media_url(media.media_url_https, quality)) for media in tweet.media]
             imgs_embed.insert(0, embed)
             return imgs_embed
     return [embed]

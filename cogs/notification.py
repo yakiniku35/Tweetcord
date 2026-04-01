@@ -32,10 +32,11 @@ class Notification(Cog_Extension):
     @app_commands.choices(
         enable_type=[app_commands.Choice(name='All (default)', value='11'), app_commands.Choice(name='Tweet & Retweet Only', value='10'), app_commands.Choice(name='Tweet & Quote Only', value='01'), app_commands.Choice(name='Tweet Only', value='00')],
         media_type=[app_commands.Choice(name='All (default)', value='11'), app_commands.Choice(name='No Media', value='10'), app_commands.Choice(name='Media Only', value='01')],
+        image_quality=[app_commands.Choice(name='Original (default)', value='orig'), app_commands.Choice(name='Large', value='large'), app_commands.Choice(name='Medium', value='medium'), app_commands.Choice(name='Small', value='small')],
         account_used=[app_commands.Choice(name=account_name, value=account_name) for account_name, _ in get_accounts().items()]
     )
     @app_commands.rename(enable_type='type')
-    async def notifier(self, itn: discord.Interaction, username: str, channel: discord.TextChannel | discord.Thread, mention: discord.Role = None, enable_type: str = '11', media_type: str = '11', account_used: str = list(get_accounts().keys())[0]):
+    async def notifier(self, itn: discord.Interaction, username: str, channel: discord.TextChannel | discord.Thread, mention: discord.Role = None, enable_type: str = '11', media_type: str = '11', image_quality: str = 'orig', account_used: str = list(get_accounts().keys())[0]):
         """Add a twitter user to specific channel on your server.
 
         Parameters
@@ -50,6 +51,8 @@ class Notification(Cog_Extension):
             Whether to enable notifications for retweets & quotes.
         media_type: str
             Whether to enable notifications for All Tweets, Tweets with Media, or Tweets without Media Only.
+        image_quality: str
+            The image quality for photos in notifications (only applies to built-in embed).
         account_used: str
             The account used to deliver notifications.
         """
@@ -82,7 +85,7 @@ class Notification(Cog_Extension):
                                 await db.execute('BEGIN')
                                 await cursor.execute('INSERT INTO user (id, username, latest_tweet, client_used) VALUES (?, ?, ?, ?)', (str(new_user.id), new_user.username, get_utcnow(), account_used))
                                 await cursor.execute('INSERT OR IGNORE INTO channel VALUES (?, ?)', (str(channel.id), server_id))
-                                await cursor.execute('INSERT INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type) VALUES (?, ?, ?, ?, ?)', (str(new_user.id), str(channel.id), roleID, enable_type, media_type))
+                                await cursor.execute('INSERT INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (str(new_user.id), str(channel.id), roleID, enable_type, media_type, image_quality))
                                 await db.commit()
                         else:
                             is_changed_client = False
@@ -114,9 +117,9 @@ class Notification(Cog_Extension):
                             async with lock:
                                 await db.execute('BEGIN')
                                 if is_changed_client:
-                                    await cursor.execute('REPLACE INTO user (client_used) VALUES (?) WHERE id = ?', (account_used, match_user['id']))
+                                    await cursor.execute('UPDATE user SET client_used = ? WHERE id = ?', (account_used, match_user['id']))
                                 await cursor.execute('INSERT OR IGNORE INTO channel VALUES (?, ?)', (str(channel.id), server_id))
-                                await cursor.execute('REPLACE INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type) VALUES (?, ?, ?, ?, ?)', (match_user['id'], str(channel.id), roleID, enable_type, media_type))
+                                await cursor.execute('REPLACE INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (match_user['id'], str(channel.id), roleID, enable_type, media_type, image_quality))
                                 await cursor.execute('UPDATE user SET enabled = 1 WHERE id = ?', (match_user['id'],))
                                 await db.commit()
 
@@ -131,7 +134,7 @@ class Notification(Cog_Extension):
                         async with lock:
                             await db.execute('BEGIN')
                             await cursor.execute('INSERT OR IGNORE INTO channel VALUES (?, ?)', (str(channel.id), server_id))
-                            await cursor.execute('REPLACE INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type) VALUES (?, ?, ?, ?, ?)', (match_user['id'], str(channel.id), roleID, enable_type, media_type))
+                            await cursor.execute('REPLACE INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (match_user['id'], str(channel.id), roleID, enable_type, media_type, image_quality))
                             await db.commit()
                 except Exception as e:
                     log.error(f'an error occurred while adding notifier: {e}')
@@ -297,16 +300,62 @@ class Notification(Cog_Extension):
                 else:
                     await itn.followup.send(f'can\'t find twitter user {username} in this server!', ephemeral=True)
 
+    @customize_group.command(name='image_quality')
+    @app_commands.choices(
+        quality=[app_commands.Choice(name='Original (default)', value='orig'), app_commands.Choice(name='Large', value='large'), app_commands.Choice(name='Medium', value='medium'), app_commands.Choice(name='Small', value='small')]
+    )
+    @app_commands.rename(channel_id='channel')
+    async def customize_image_quality(self, itn: discord.Interaction, channel_id: str, username: str, quality: str = 'orig'):
+        """Set image quality for photo notifications (only applies to built-in embed).
+
+        Parameters
+        -----------
+        channel_id: str
+            The channel id which is set to deliver notifications.
+        username: str
+            The username of the twitter user you want to set image quality for.
+        quality: str
+            The image quality for photos (orig, large, medium, small).
+        """
+        if configs['embed']['type'] != 'built_in':
+            await itn.response.send_message('image quality setting only applies to built-in embed!', ephemeral=True)
+            return
+
+        channel = itn.guild.get_channel_or_thread(int(channel_id))
+        if channel is None:
+            await itn.response.send_message(f'can\'t find channel {channel_id}!', ephemeral=True)
+            return
+
+        await itn.response.defer(ephemeral=True)
+
+        async with aiosqlite.connect(os.path.join(os.getenv('DATA_PATH'), 'tracked_accounts.db')) as db:
+            await db.execute('PRAGMA synchronous = OFF')
+            await db.execute('PRAGMA count_changes = OFF')
+
+            db.row_factory = aiosqlite.Row
+            async with db.cursor() as cursor:
+                await cursor.execute('SELECT user_id FROM notification, user WHERE username = ? COLLATE NOCASE AND channel_id = ? AND user_id = id AND notification.enabled = 1', (username, str(channel.id)))
+                match_notifier = await cursor.fetchone()
+                if match_notifier is not None:
+                    async with lock:
+                        await cursor.execute('UPDATE notification SET image_quality = ? WHERE user_id = ? AND channel_id = ?', (quality, match_notifier['user_id'], str(channel.id)))
+                        await db.commit()
+                    await itn.followup.send(f'successfully set image quality to `{quality}` for {username} in {channel.mention}!', ephemeral=True)
+                else:
+                    await itn.followup.send(f'can\'t find notifier {username} in {channel.mention}!', ephemeral=True)
+
     @r_notifier.autocomplete('channel_id')
     async def get_channels_for_r_notifier(self, itn: discord.Interaction, input_channel: str) -> list[app_commands.Choice[str]]:        
         return await fetch_tracked_channels(itn, input_channel, include_unknown=True)
 
     @customize_message.autocomplete('channel_id')
+    @customize_image_quality.autocomplete('channel_id')
     async def get_channels_for_customize_message(self, itn: discord.Interaction, input_channel: str) -> list[app_commands.Choice[str]]:
         return await fetch_tracked_channels(itn, input_channel, include_unknown=False)
 
     @r_notifier.autocomplete('username')
     @customize_message.autocomplete('username')
+    @customize_image_quality.autocomplete('username')
     async def get_enabled_users(self, itn: discord.Interaction, username: str) -> list[app_commands.Choice[str]]:
         selected_channel_id = itn.data['options'][0]['options'][0]['value']
         if selected_channel_id is None:
