@@ -85,17 +85,17 @@ Custom notification messages are in `f-string format`, currently supporting 4 sp
 - `{mention}` : the role to mention when sending to discord
 - `{url}` : the link of the tweet
 
-Using the default notification as an example, if the message is customized to the following format (supporting Discord's markdown format):
+The default notification uses embed-only style. If you set a role mention, it will appear above the embed. You can customize the message format (supporting Discord's markdown format), for example:
 
 ```plaintext
-{mention}**{author}** just {action} here: 
+{mention}**{author}** just {action} here:
 {url}
 ```
 
 The notification will be sent in this format when a tweet is posted (here is a real-world example):
 
 ```plaintext
-@Ping_SubTweet ﾅﾁｮﾈｺ just tweeted here: 
+@Ping_SubTweet ﾅﾁｮﾈｺ just tweeted here:
 https://twitter.com/nyachodayo/status/1869000108697960952
 ```
 

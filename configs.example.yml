@@ -33,7 +33,5 @@ embed:
       enabled: false
       default_language: 'en'
 
-default_message: |
-  {mention}**{author}** just {action} here: 
-  {url}
+default_message: '{mention}'
 emoji_auto_format: true
