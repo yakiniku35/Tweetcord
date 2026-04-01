@@ -201,7 +201,7 @@ class AccountTracker():
                                 footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'
                                 file = discord.File(f'images/{footer}', filename='footer.png')
                                 content = msg.strip() or None
-                                await channel.send(content, file=file, embeds=await gen_embed(tweet), view=view)
+                                await channel.send(content, file=file, embeds=await gen_embed(tweet, data['image_quality']), view=view)
 
                         except Exception as e:
                             if not isinstance(e, discord.errors.Forbidden):
