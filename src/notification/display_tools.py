@@ -7,13 +7,33 @@ from tweety.types import Tweet
 
 from configs.load_configs import configs
 
+def _md_escape_label(s: str) -> str:
+    # Minimal escaping for markdown link labels: [label](url)
+    # Avoid breaking the label when it contains ']' or ')'
+    if s is None:
+        return ""
+    return s.replace("]", "］").replace(")", "）")
 
 async def gen_embed(tweet: Tweet) -> list[discord.Embed]:
     author = tweet.author
-    embed = discord.Embed(title=f'{author.name} {get_action(tweet, disable_quoted=True)} {get_tweet_type(tweet)}', description=tweet.text, url=tweet.url, color=0x1da0f2, timestamp=tweet.created_on)
+
+    open_tweet = f"[Open Tweet]({tweet.url})"
+    author_link = f"[@{_md_escape_label(author.username)}](https://twitter.com/{author.username})"
+    link_line = f"{open_tweet} | {author_link}"
+
+    description = (tweet.text or "") + "\n\n" + link_line
+
+    embed = discord.Embed(
+        title=f'{author.name} {get_action(tweet, disable_quoted=True)} {get_tweet_type(tweet)}',
+        description=description,
+        url=tweet.url,
+        color=0x1da0f2,
+        timestamp=tweet.created_on
+    )
     embed.set_author(name=f'{author.name} (@{author.username})', icon_url=author.profile_image_url_https, url=f'https://twitter.com/{author.username}')
-    embed.set_thumbnail(url=re.sub(r'normal(?=\.jpg$)', '400x400', tweet.author.profile_image_url_https))
+    embed.set_thumbnail(url=re.sub(r'normal(?=\\.jpg$)', '400x400', tweet.author.profile_image_url_https))
     embed.set_footer(text='Twitter' if configs['embed']['built_in']['legacy_logo'] else 'X', icon_url='attachment://footer.png')
+
     if len(tweet.media) == 1:
         embed.set_image(url=tweet.media[0].media_url_https)
         return [embed]
@@ -29,8 +49,8 @@ async def gen_embed(tweet: Tweet) -> list[discord.Embed]:
             imgs_embed = [discord.Embed(url=tweet.url).set_image(url=media.media_url_https) for media in tweet.media]
             imgs_embed.insert(0, embed)
             return imgs_embed
-    return [embed]
 
+    return [embed]
 
 def get_action(tweet: Tweet, disable_quoted: bool = False) -> str:
     if tweet.is_retweet:
