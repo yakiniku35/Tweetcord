@@ -70,6 +70,19 @@ Tweetcord是一個Discord機器人，它使用[tweety-ns](https://github.com/mah
 
 - 將新Twitter帳戶的通知與資料庫同步。如果你更改了bot使用的Twitter帳戶，請使用此指令
 
+👉 `/status`
+
+- 查詢機器人目前的運行狀態（僅對你可見），包含以下資訊：
+
+| 欄位 | 描述 |
+| ---- | ---- |
+| Uptime | 機器人自啟動以來的運行時間 |
+| Tracked Users | 目前監控中的Twitter用戶數量 |
+| Active Tasks | 運行中的通知任務數量 |
+| Twitter Accounts | 已設定的Twitter客戶端帳號數量 |
+| Database | 資料庫是否可連線 |
+| Embed Mode | 目前使用的嵌入模式（`built_in` 或 `proxy`） |
+
 👉 `/customize message` `channel` `username` | `default`
 
 | 參數 | 類型 | 描述 |

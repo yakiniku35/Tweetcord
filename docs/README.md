@@ -70,6 +70,19 @@ Tweetcord is a Discord bot that leverages the [tweety-ns module](https://github.
 
 - Sync the notification of new Twitter account with database.  If you change the twitter account used by bot, please use this command
 
+👉 `/status`
+
+- Query the bot's current running status. The response is ephemeral (visible only to you) and includes:
+
+| Field | Description |
+| ----- | ----------- |
+| Uptime | Time elapsed since the bot process started |
+| Tracked Users | Number of Twitter users currently being monitored |
+| Active Tasks | Number of running notification tasks |
+| Twitter Accounts | Number of configured Twitter client accounts |
+| Database | Whether the database is reachable |
+| Embed Mode | Current embed mode (`built_in` or `proxy`) |
+
 👉 `/customize message` `channel` `username` | `default`
 
 | Parameter | Type | Description |
