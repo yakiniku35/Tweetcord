@@ -99,6 +99,8 @@ The notification will be sent in this format when a tweet is posted (here is a r
 https://twitter.com/nyachodayo/status/1869000108697960952
 ```
 
+> **Note:** When using `proxy` embed type, if `{url}` is not present in the message template, the tweet URL is automatically appended to the message. This ensures the tweet embed (which shows the author's name and profile) always appears. For `built_in` embed type, the embed already displays the author's name and avatar — no extra text is needed.
+
 👉 `/customize translation` `username` | `language`
 
 | Parameter | Type | Description |

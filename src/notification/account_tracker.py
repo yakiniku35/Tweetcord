@@ -196,6 +196,8 @@ class AccountTracker():
                             msg = msg.format(mention=mention, author=author, action=action, url=url)
 
                             if EMBED_TYPE == 'proxy':
+                                if url not in msg:
+                                    msg = f"{msg}\n{url}".strip() if msg.strip() else url
                                 await channel.send(msg, view=view)
                             else:
                                 footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'

@@ -99,6 +99,8 @@ Tweetcord是一個Discord機器人，它使用[tweety-ns](https://github.com/mah
 https://twitter.com/nyachodayo/status/1869000108697960952
 ```
 
+> **注意：** 使用 `proxy` 嵌入類型時，如果訊息模板中沒有包含 `{url}`，推文的連結將會自動附加到訊息末尾，確保推文嵌入（包含發文者名稱與頭像）一定會顯示。使用 `built_in` 嵌入類型時，嵌入本身已經會顯示發文者的名稱與頭像，不需要另外在訊息文字中加入作者資訊。
+
 👉 `/customize translation` `username` | `language`
 
 | 參數 | 類型 | 描述 |
