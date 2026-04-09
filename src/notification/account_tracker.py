@@ -189,18 +189,13 @@ class AccountTracker():
                                     url += f"/{lang}"
 
                             mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
-                            author, action = tweet.author.name, get_action(tweet)
                             
-                            if not data['customized_msg']: msg = configs['default_message']
-                            else: msg = re.sub(r":(\w+):", lambda match: replace_emoji(match, channel.guild), data['customized_msg']) if configs['emoji_auto_format'] else data['customized_msg']
-                            msg = msg.format(mention=mention, author=author, action=action, url=url)
-
                             if EMBED_TYPE == 'proxy':
-                                await channel.send(msg, view=view)
+                                await channel.send(url, view=view)
                             else:
                                 footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'
                                 file = discord.File(f'images/{footer}', filename='footer.png')
-                                content = msg.strip() or None
+                                content = f"{mention}{url}" if mention else url
                                 await channel.send(content, file=file, embeds=await gen_embed(tweet, data['image_quality']), view=view)
 
                         except Exception as e:
