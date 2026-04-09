@@ -193,8 +193,12 @@ class AccountTracker():
                             action = get_action(tweet)
                             
                             # Include tweet preview in notification for mobile alerts
-                            tweet_preview = tweet.text[:150] + "..." if len(tweet.text) > 150 else tweet.text
-                            notification_msg = f"{mention}**{author}** {action}\n{tweet_preview}"
+                            tweet_text = tweet.text or ""
+                            if tweet_text:
+                                tweet_preview = tweet_text[:150] + "..." if len(tweet_text) > 150 else tweet_text
+                                notification_msg = f"{mention}**{author}** {action}\n{tweet_preview}"
+                            else:
+                                notification_msg = f"{mention}**{author}** {action}"
                             
                             if EMBED_TYPE == 'proxy':
                                 await channel.send(f"{notification_msg}\n{url}", view=view)
