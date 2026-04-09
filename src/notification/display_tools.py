@@ -58,6 +58,21 @@ async def gen_embed(tweet: Tweet, quality: str = 'orig') -> list[discord.Embed]:
     return [embed]
 
 
+def gen_proxy_embed(tweet: Tweet, url: str) -> discord.Embed:
+    author = tweet.author
+    embed = discord.Embed(
+        url=url,
+        color=0x1da0f2,
+        timestamp=tweet.created_on
+    )
+    embed.set_author(
+        name=f'{author.name} (@{author.username})',
+        icon_url=author.profile_image_url_https,
+        url=f'https://twitter.com/{author.username}'
+    )
+    return embed
+
+
 def get_action(tweet: Tweet, disable_quoted: bool = False) -> str:
     if tweet.is_retweet:
         return 'retweeted'

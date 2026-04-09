@@ -11,7 +11,7 @@ from tweety import Twitter
 
 from configs.load_configs import configs
 from src.log import setup_logger
-from src.notification.display_tools import gen_embed, get_action
+from src.notification.display_tools import gen_embed, gen_proxy_embed, get_action
 from src.notification.get_tweets import get_tweets
 from src.notification.utils import is_match_media_type, is_match_type, replace_emoji
 from src.utils import get_accounts, get_lock, get_utcnow
@@ -196,7 +196,8 @@ class AccountTracker():
                             msg = msg.format(mention=mention, author=author, action=action, url=url)
 
                             if EMBED_TYPE == 'proxy':
-                                await channel.send(msg, view=view)
+                                content = msg.strip() or None
+                                await channel.send(content, embed=gen_proxy_embed(tweet, url), view=view)
                             else:
                                 footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'
                                 file = discord.File(f'images/{footer}', filename='footer.png')
