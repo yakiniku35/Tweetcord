@@ -189,7 +189,6 @@ class AccountTracker():
                                     url += f"/{lang}"
 
                             mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
-                            tweet_text = tweet.text or ""
 
                             if EMBED_TYPE == 'proxy':
                                 author = tweet.author.name
@@ -197,11 +196,11 @@ class AccountTracker():
                                 notification_msg = f"{mention}**{author}** {action}"
                                 await channel.send(f"{notification_msg}\n{url}", view=view)
                             else:
-                                # Use tweet text as notification so mobile push shows tweet content
-                                notification_msg = f"{mention}{tweet_text}" if tweet_text else mention.strip() or None
+                                # No plain text — embed title carries the who+action, description has tweet content
+                                content = mention.strip() or None
                                 footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'
                                 file = discord.File(f'images/{footer}', filename='footer.png')
-                                await channel.send(content=notification_msg, file=file, embeds=await gen_embed(tweet, data['image_quality']), view=view)
+                                await channel.send(content=content, file=file, embeds=await gen_embed(tweet, data['image_quality']), view=view)
 
                         except Exception as e:
                             if not isinstance(e, discord.errors.Forbidden):

@@ -23,15 +23,17 @@ def _get_media_url(media_url: str, quality: str) -> str:
 
 async def gen_embed(tweet: Tweet, quality: str = 'orig') -> list[discord.Embed]:
     author = tweet.author
+    action = get_action(tweet)
 
-    # Use tweet text as the title (the actual content), like DiscordStreamNotifyBot uses stream title
+    # Title: who did what action
+    title = f"{author.name} (@{_md_escape_label(author.username)}) {action}"
+
+    # Description: full tweet text + links
     tweet_text = tweet.text or ""
-    title = tweet_text[:256] if tweet_text else f"{author.name} {get_action(tweet, disable_quoted=True)}"
-
-    # Description: author link + open tweet link
-    author_link = f"[@{_md_escape_label(author.username)}](https://twitter.com/{author.username})"
     open_tweet = f"[Open Tweet]({tweet.url})"
-    description = f"{author_link} | {open_tweet}"
+    author_link = f"[@{_md_escape_label(author.username)}](https://twitter.com/{author.username})"
+    link_line = f"{open_tweet} | {author_link}"
+    description = f"{tweet_text}\n\n{link_line}" if tweet_text else link_line
 
     embed = discord.Embed(
         title=title,
