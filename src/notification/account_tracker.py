@@ -191,18 +191,7 @@ class AccountTracker():
                             mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
                             author = tweet.author.name
                             action = get_action(tweet)
-                            
-                            # Include tweet preview in notification for mobile alerts
-                            tweet_text = tweet.text or ""
-                            log.info(f"Tweet text content: '{tweet_text}' (length: {len(tweet_text)})")
-                            
-                            if tweet_text:
-                                tweet_preview = tweet_text[:150] + "..." if len(tweet_text) > 150 else tweet_text
-                                notification_msg = f"{mention}**{author}** {action}\n{tweet_preview}"
-                            else:
-                                notification_msg = f"{mention}**{author}** {action}"
-                            
-                            log.info(f"Notification message: '{notification_msg}'")
+                            notification_msg = f"{mention}**{author}** {action}"
                             
                             if EMBED_TYPE == 'proxy':
                                 await channel.send(f"{notification_msg}\n{url}", view=view)
