@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import re
+import aiohttp
 from datetime import datetime, timezone, timedelta
 
 import aiosqlite
@@ -9,11 +10,13 @@ import discord
 from discord.ext import commands
 from tweety import Twitter
 
-from configs.load_configs import configs
+from core.classes import ParsedTweet
+from configs.load_configs import configs, IS_TRANSLATION_ENABLED
+from src.i18n import t
 from src.log import setup_logger
-from src.notification.display_tools import gen_embed, get_action
+from src.notification.display_tools import gen_embed, get_action, get_footer_name
 from src.notification.get_tweets import get_tweets
-from src.notification.utils import is_match_media_type, is_match_type, replace_emoji
+from src.notification.utils import is_match_media_type, is_match_type, replace_emoji, get_parsed_tweet
 from src.utils import get_accounts, get_lock, get_utcnow
 from src.db_function.readonly_db import connect_readonly
 from src.db_function.init_db import init_latest_tweet_on_startup
@@ -21,7 +24,6 @@ from src.db_function.init_db import init_latest_tweet_on_startup
 EMBED_TYPE: str = configs['embed']['type']
 SERVICE: str = configs['embed']['proxy']['service']
 DOMAIN_NAME: str = configs['embed']['proxy']['domain_name']
-AUTO_TRANSLATION: dict[bool, str] = configs['embed']['proxy']['auto_translation']
 
 log = setup_logger(__name__)
 lock = get_lock()
@@ -32,6 +34,8 @@ class AccountTracker():
         self.accounts_data = get_accounts()
         self.db_path = os.path.join(os.getenv('DATA_PATH'), 'tracked_accounts.db')
         self.tweets = {account_name: [] for account_name in self.accounts_data.keys()}
+        self.session = None
+        self.sending_retry_tasks: set[asyncio.Task] = set()
         # Responsible for processing queries and writing timestamps
         self.db_write_queue = asyncio.Queue()
         self.latest_tweet_timestamps = {}
@@ -41,6 +45,7 @@ class AccountTracker():
         bot.loop.create_task(self.setup_tasks())
 
     async def setup_tasks(self):
+        self.session = aiohttp.ClientSession()
         if configs['init_latest_tweet_on_startup']:
             await init_latest_tweet_on_startup(self.db_path)
 
@@ -51,8 +56,19 @@ class AccountTracker():
         # Wait for the initial timestamp load
         await self.timestamps_ready.wait()
 
-        async def authenticate_account(account_name, account_token):
+        async def authenticate_account(account_name, account_token):            
             app = Twitter(account_name)
+            
+            if configs['use_existing_sessions_first']:
+                try:
+                    saved_token = app.session.cookies_dict().get('auth_token')
+                    if saved_token and saved_token != account_token:
+                        log.info(f"detected updated auth token in environmental variables for account: {account_name}, re-authenticating...")
+                    elif await app.connect():
+                        return app
+                except Exception as e:
+                    log.warning(f"failed to load existing session for account {account_name}: {e}")
+            
             max_attempts = configs['auth_max_attempts']
             for attempt in range(max_attempts):
                 try:
@@ -142,7 +158,7 @@ class AccountTracker():
                         await cursor.execute('SELECT id FROM user WHERE username = ?', (username,))
                         user = await cursor.fetchone()
                         if user:
-                            if EMBED_TYPE == 'proxy' and AUTO_TRANSLATION['enabled']:
+                            if IS_TRANSLATION_ENABLED:
                                 await cursor.execute('''
                                     SELECT n.*, suc.translate AS server_translate
                                     FROM notification n
@@ -165,46 +181,107 @@ class AccountTracker():
             for tweet in latest_tweets:
                 log.info(f'find a new tweet from {username}')
                 
-                view, create_view = None, False
-                if bool(tweet.media) and tweet.media[0].type == 'video' and EMBED_TYPE == 'built_in' and configs['embed']['built_in']['video_link_button']:
-                    create_view = True
-                    button_label, button_url = 'View Video', tweet.media[0].expanded_url
-                elif EMBED_TYPE == 'proxy' and configs['embed']['proxy']['original_url_button']:
-                    create_view = True
-                    button_label, button_url = 'View Original', tweet.url
-
-                if create_view:
-                    view = discord.ui.View()
-                    view.add_item(discord.ui.Button(label=button_label, style=discord.ButtonStyle.link, url=button_url))
+                parsed_cache: dict[str, ParsedTweet] = {}
+                content_cache: dict[tuple[str, str], tuple[list[discord.Embed], discord.ui.View, ParsedTweet]] = {}
                 
+                def gen_view(label: str, url: str):
+                    view = discord.ui.View(timeout=5)
+                    view.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle.link, url=url))
+                    return view
+                
+                view = None
+                if EMBED_TYPE == 'proxy' and configs['embed']['proxy']['original_url_button']:
+                    view = gen_view(t('display.button.view_original'), tweet.url)
+
                 for data in notifications:
                     channel = self.bot.get_channel(int(data['channel_id']))
-                    if channel is not None and is_match_type(tweet, data['enable_type']) and is_match_media_type(tweet, data['enable_media_type']):
-                        try:
-                            url = tweet.url
-                            if EMBED_TYPE == 'proxy':
-                                url = url.replace('twitter', DOMAIN_NAME)
-                                if AUTO_TRANSLATION['enabled']:
-                                    lang = data['server_translate'] if data['server_translate'] is not None else AUTO_TRANSLATION['default_language']
-                                    url += f"/{lang}"
+                    if channel is None or not is_match_type(tweet, data['enable_type']):
+                        continue
+                    
+                    lang = (data['server_translate'] or configs['embed']['trans_default_lang']) if IS_TRANSLATION_ENABLED else None
+                    quality = data['image_quality'] or 'orig'
+                    cache_key = (lang, quality)
+                    
+                    if cache_key not in content_cache:
+                        p_tweet, embeds = None, None
+                        
+                        if EMBED_TYPE == 'built_in':
+                            if lang not in parsed_cache:
+                                parsed_cache[lang] = await get_parsed_tweet(tweet, self.session, lang=lang)
+                            p_tweet = parsed_cache[lang]
+                            embeds = gen_embed(tweet, p_tweet, quality)
+                            if view is None and p_tweet.media.type == 'video' and configs['embed']['built_in']['video_link_button']:
+                                button_url = p_tweet.media.video_link or tweet.url
+                                view = gen_view(t('display.button.view_video'), button_url)
+                        
+                        content_cache[cache_key] = (embeds, view, p_tweet)
 
-                            mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
+                    current_embeds, current_view, current_p_tweet = content_cache[cache_key]
 
-                            if EMBED_TYPE == 'proxy':
-                                author = tweet.author.name
-                                action = get_action(tweet)
-                                notification_msg = f"{mention}**{author}** {action}"
-                                await channel.send(f"{notification_msg}\n{url}", view=view)
-                            else:
-                                # No plain text — embed title carries the who+action, description has tweet content
-                                content = mention.strip() or None
-                                footer = 'twitter.png' if configs['embed']['built_in']['legacy_logo'] else 'x.png'
-                                file = discord.File(f'images/{footer}', filename='footer.png')
-                                await channel.send(content=content, file=file, embeds=await gen_embed(tweet, data['image_quality']), view=view)
+                    if not is_match_media_type(current_p_tweet if current_p_tweet else tweet, data['enable_media_type']):
+                        continue
 
-                        except Exception as e:
-                            if not isinstance(e, discord.errors.Forbidden):
-                                log.error(f'an error occurred at {channel.mention} while sending notification: {e}')
+                    try:
+                        url = tweet.url
+                        if EMBED_TYPE == 'proxy':
+                            url = url.replace('twitter', DOMAIN_NAME)
+                            if IS_TRANSLATION_ENABLED:
+                                url += f"/{lang}"
+
+                        mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
+
+                        if data['customized_msg']:
+                            author, action = tweet.author.name, get_action(tweet)
+                            msg = re.sub(r":(\w+):", lambda match: replace_emoji(match, channel.guild), data['customized_msg']) if configs['emoji_auto_format'] else data['customized_msg']
+                            msg = msg.format(mention=mention, author=author, action=action, url=url)
+                        elif EMBED_TYPE == 'proxy':
+                            author, action = tweet.author.name, get_action(tweet)
+                            msg = f"{mention}**{author}** {action}\n{url}"
+                        else:
+                            # No plain text — embed title carries the who+action, description has tweet content
+                            msg = mention.strip() or None
+
+                        await self._send_notification(channel, msg, current_view, current_embeds)
+                    except (discord.errors.DiscordServerError, aiohttp.ClientError, asyncio.TimeoutError, ConnectionResetError) as e:
+                        max_retries = configs.get('notification_max_retries', 3)
+                        if max_retries > 0:
+                            log.warning(f"transient error ({e}) at {channel.mention} while sending notification, scheduling retry task...")
+                            task = asyncio.create_task(
+                                self._retry_send_notification(channel, msg, current_view, current_embeds)
+                            )
+                            self.sending_retry_tasks.add(task)
+                            task.add_done_callback(self.sending_retry_tasks.discard)
+                        else:
+                            log.error(f"an error occurred at {channel.mention} while sending notification: {e}")
+                    except Exception as e:
+                        if not isinstance(e, discord.errors.Forbidden):
+                            log.error(f"an error occurred at {channel.mention} while sending notification: {e}")
+                            
+    async def _send_notification(self, channel: discord.abc.Messageable, msg: str, view: discord.ui.View | None, embeds: list[discord.Embed] | None):
+        if EMBED_TYPE == 'proxy':
+            await channel.send(msg, view=view)
+        else:
+            file = discord.File(f'images/{get_footer_name()}', filename='footer.png')
+            await channel.send(msg, file=file, embeds=embeds, view=view)
+
+    async def _retry_send_notification(self, channel: discord.abc.Messageable, msg: str, view: discord.ui.View | None, embeds: list[discord.Embed] | None):
+        delay = configs.get('notification_retry_delay', 2)
+        max_retries = configs.get('notification_max_retries', 3)
+        
+        for attempt in range(1, max_retries + 1):
+            await asyncio.sleep(delay)
+            try:
+                await self._send_notification(channel, msg, view, embeds)
+                log.info(f"successfully sent notification to {channel.mention} after retry {attempt}/{max_retries}")
+                return
+            except (discord.errors.DiscordServerError, aiohttp.ClientError, asyncio.TimeoutError, ConnectionResetError) as e:
+                log.warning(f"retry {attempt}/{max_retries} failed for {channel.mention}: {e}")
+                delay *= 2
+            except Exception as e:
+                if not isinstance(e, discord.errors.Forbidden):
+                    log.error(f"non-retryable error occurred at {channel.mention} during retry: {e}")
+                return
+        log.error(f"failed to send notification to {channel.mention} after {max_retries} retries")
 
     async def tweetsUpdater(self, app: Twitter):
         updater_name = asyncio.current_task().get_name().split('_', 1)[1]
@@ -289,3 +366,15 @@ class AccountTracker():
                 task.cancel()
                 log.info(f'task {username} has been cancelled')
                 break
+
+    async def close(self):
+        """Closes the persistent session."""
+        for task in list(self.sending_retry_tasks):
+            task.cancel()
+        if self.sending_retry_tasks:
+            await asyncio.gather(*self.sending_retry_tasks, return_exceptions=True)
+            self.sending_retry_tasks.clear()
+
+        if self.session:
+            await self.session.close()
+            log.info("account tracker session closed")

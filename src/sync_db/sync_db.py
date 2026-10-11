@@ -20,15 +20,24 @@ async def sync_db(follow_list: dict[str, str]) -> None:
         apps[account_name] = app
 
     for user_id, client_used in follow_list.items():
-        app = apps[client_used]
+        app = apps.get(client_used)
+        if app is None:
+            log.warning(f'client "{client_used}" for user {user_id} is not configured, skip synchronization')
+            continue
+
         try:
             await app.follow_user(user_id)
             await app.enable_user_notification(user_id)
         except TwitterError as e:
-            if e.error_code == _SELF_FOLLOW_CODE:
-                log.warning(f"skipping user {user_id}: cannot follow yourself (TwitterError {_SELF_FOLLOW_CODE})")
+            if str(e.error_code) == str(_SELF_FOLLOW_CODE):
+                log.warning(f'skipping user {user_id}: cannot follow yourself (TwitterError {_SELF_FOLLOW_CODE})')
+            elif '[108]' in str(e):
+                log.warning(f'cannot find specified user: {user_id}, skip synchronization')
             else:
-                log.error(f"TwitterError while syncing user {user_id}: {e}")
+                log.error(f'failed to sync {user_id} to {client_used}: {e}')
+        except Exception as e:
+            log.error(f'failed to sync {user_id} to {client_used}: {e}')
+
         await asyncio.sleep(1)
 
     log.info('synchronization with database completed')

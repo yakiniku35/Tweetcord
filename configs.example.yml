@@ -1,13 +1,18 @@
+locale: 'en'
 prefix: '.'
 activity_name: '{count} accounts'
 activity_type: 'watching'
 users_list_pagination_size: 8
 users_list_page_counter_position: 'title'
+enable_prefix_commands_in_guild: true
+use_existing_sessions_first: true
 
 tweets_check_period: 60
 tweets_updater_retry_delay: 5
 tasks_monitor_check_period: 1
 tasks_monitor_log_period: 4
+notification_max_retries: 3
+notification_retry_delay: 2
 auth_max_attempts: 2
 
 auto_change_client: false
@@ -19,9 +24,18 @@ init_latest_tweet_on_startup: false
 
 embed:
   type: 'built_in'
+  trans_default_lang: 'en'
 
   built_in:
-    fx_image: true
+    fx:
+      media:
+        enabled: true
+        external: false
+      rt_text:
+        enabled: true
+        simplified: true
+      mosaic: true
+      auto_translation: false
     video_link_button: false
     legacy_logo: true
     
@@ -29,9 +43,7 @@ embed:
     service: 'fx'
     domain_name: 'fxtwitter'
     original_url_button: true
-    auto_translation:
-      enabled: false
-      default_language: 'en'
+    auto_translation: false
 
 default_message: '{mention}'
 emoji_auto_format: true

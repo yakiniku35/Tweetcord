@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.7.4 (September 27, 2026)
+
+**🐛Fixes:**
+- Updated the `tweety-ns` dependency with a fallback to `/i/jf/` for extracting the ondemand chunk manifest, fixing `Exception: Couldn't get animation key indices` and account authentication failures caused by X's migration to the new Rolldown-based frontend (`x-web`).
+
+## 0.7.3 (September 23, 2026)
+
+**✨Features:**
+- Implemented a notification retry mechanism with exponential backoff to automatically retry sending messages upon encountering transient Discord server or network errors (such as `503 Service Unavailable` or timeouts), resolving part of issue [#98](https://github.com/Yuuzi261/Tweetcord/issues/98).
+- Added support for prioritizing existing saved sessions on startup, eliminating the need to force a re-login on every bot restart.
+
+**♻️Refactor:**
+- Corrected a typo in the type hint for the `fetch_tracked_channels` function parameter.
+
+**🐛Fixes:**
+- Resolved autocomplete exceptions caused by excessive choices (> 25) or choice labels exceeding Discord's 100-character limit, resolving part of issue [#98](https://github.com/Yuuzi261/Tweetcord/issues/98).
+- Updated the `tweety-ns` dependency with a cache-busting patch to address login failures caused by Cloudflare edge caching on X (`business.x.com`).
+- Fixed an issue where deleted channels (`# unknown`) could not be filtered by query in channel autocomplete.
+- Fixed an issue where HTML entities (such as `&amp;`, `&lt;`, `&gt;`) in tweet content were not unescaped, preventing raw entities from displaying in Discord messages or breaking Markdown formatting (applies when using the `built_in` embed type).
+- Safely retrieve the selected channel option via `itn.namespace` in username autocomplete to avoid potential exceptions when accessing raw interaction data.
+
+**🚀Performance:**
+- Optimized `fetch_tracked_channels` by terminating search early once the maximum autocomplete choice limit (25) is reached, avoiding unnecessary database iterations.
+
+## 0.7.2 (July 15, 2026)
+
+**✨Features:**
+- Significantly enhanced Markdown escaping functionality, optimizing text replacement for URLs, media, mentions (@), and hashtags (#) to prevent broken Markdown formatting in Discord messages (applies when using the `built_in` embed type with fx enhancements enabled).
+- Added support for reading from the configuration to dynamically determine whether to enable prefix commands in guilds. If prefix commands are disabled in guilds, the Message Content Intent can be safely turned off without affecting any functionality.
+
+**♻️Refactor:**
+- Refactored the `init_db` function logic, decoupling the database existence check into the `init_db` function.
+
+**🐛Fixes:**
+- Fixed the `/sync` command to prevent re-following and re-enabling notifications for removed users, and prevented unconfigured clients from interrupting the sync process.
+- Implemented a temporary patch for issue [#93](https://github.com/Yuuzi261/Tweetcord/issues/93).
+- Fixed and refined edge cases in the Markdown cleaning and escaping logic.
+
+**🎉New Contributors:**
+- @tomokarin made their first contribution in [#90](https://github.com/Yuuzi261/Tweetcord/pull/90)
+- @Ishannaik made their first contribution in [#95](https://github.com/Yuuzi261/Tweetcord/pull/95)
+
+## 0.7.1 (May 20, 2026)
+
+**🐛Fixes:**
+- Fix task crash on retweets caused by forcing RT info into `self.trans`, changing it from `None` to a `string` and breaking downstream logic.
+
+## 0.7 (May 19, 2026)
+
+**✨Features:**
+- Replaced the `/customize_message` command with `/customize_settings`. This new command allows you to modify a specific notifier's mention role, enabled tweet types, media types, and custom messages via a modal, eliminating the need to re-add and overwrite settings with `/add notifier`.
+- Upgraded the built-in embed mode with a new FixupX enhancement option. This feature provides full media display for retweets, quotes, and external links, more detailed retweet text, display of quoted tweet content, and tweet translation.
+- Added internationalization (i18n) support for command descriptions, bot responses, and other UI text. Currently supports English and Traditional Chinese.
+
+**♻️Refactor:**
+- Refactored the `/add notifier` command to remove redundant logic and fix incorrect SQL statements.
+
+**🐛Fixes:**
+- Resolved issue [#88](https://github.com/Yuuzi261/Tweetcord/issues/88): The bot now skips account-related operations for banned or protected users during `/sync` or `/remove notifier`, allowing database processing to continue safely without errors.
+- Fixed error handling in `/add notifier` when using multiple tracking clients. If `auto_change_client` is enabled, you can now switch tracking clients for a user by adding a notifier with a different client without removing existing ones. If disabled, the switch is blocked with a prompt to enable the setting.
+- Fixed an issue where tracking tasks were not updated when a user changed their Twitter username.
+- Corrected a regular expression used to fetch high-resolution user avatars in built-in embed mode, fixing a bug where avatars would sometimes appear smaller than intended.
+
+**🚀Performance:**
+- Performance improvements, including persistent `aiohttp` sessions and optimized SQL query execution.
+
+**🔒Security:**
+- Upgraded `python-dotenv` to `1.2.2` to patch CVE-2026-28684.
+
+**🎉New Contributors:**
+- @hungsean made their first contribution in [#85](https://github.com/Yuuzi261/Tweetcord/pull/85)
+
 ## 0.6.1 (March 18, 2026)
 
 **✨Features:**
@@ -7,7 +79,7 @@
 - Added support for per-user translation language settings.
 - Added `init_latest_tweet_on_startup` config to prevent notification spamming after downtime. If `true`, it sets all users' last post time to the current time on startup.
 
-**♻️Refactor:** 
+**♻️Refactor:**
 - Fixed typo in `lastest_tweet` (now `latest_tweet`).
 
 **🎉New Contributors:**
@@ -19,7 +91,7 @@
 - Renamed `fx_twitter` to `proxy` in the configuration and added support for multiple proxy services.
 - Added a global setting for translation language with FxTwitter (resolves issue [#57](https://github.com/Yuuzi261/Tweetcord/issues/57)).
 
-**♻️Refactor:** 
+**♻️Refactor:**
 - Conducted a major refactoring of the notification system (`AccountTracker`) to resolve critical performance bottlenecks under high load (issue [#59](https://github.com/Yuuzi261/Tweetcord/issues/59)). This includes centralizing database operations, using a producer-consumer pattern for database writes, and optimizing database connection handling.
 - Improved the task monitor to dynamically track tasks from a live cache, eliminating the need to restart the monitor when tasks are added or removed.
 - Improved and simplified the handling of configuration files.
