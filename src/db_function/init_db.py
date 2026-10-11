@@ -41,6 +41,7 @@ async def migrate_db():
         except Exception as e:
             if 'duplicate column name' not in str(e).lower():
                 log.error(f"migration error: {e}")
+                raise
 
 
 async def init_latest_tweet_on_startup(db_path: str):
