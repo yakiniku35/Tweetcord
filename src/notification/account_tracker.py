@@ -227,7 +227,11 @@ class AccountTracker():
 
                         mention = f"{channel.guild.get_role(int(data['role_id'])).mention} " if data['role_id'] else ''
 
-                        if EMBED_TYPE == 'proxy':
+                        if data['customized_msg']:
+                            author, action = tweet.author.name, get_action(tweet)
+                            msg = re.sub(r":(\w+):", lambda match: replace_emoji(match, channel.guild), data['customized_msg']) if configs['emoji_auto_format'] else data['customized_msg']
+                            msg = msg.format(mention=mention, author=author, action=action, url=url)
+                        elif EMBED_TYPE == 'proxy':
                             author, action = tweet.author.name, get_action(tweet)
                             msg = f"{mention}**{author}** {action}\n{url}"
                         else:
