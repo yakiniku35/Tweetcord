@@ -29,7 +29,7 @@ async def sync_db(follow_list: dict[str, str]) -> None:
             await app.follow_user(user_id)
             await app.enable_user_notification(user_id)
         except TwitterError as e:
-            if e.error_code == _SELF_FOLLOW_CODE:
+            if str(e.error_code) == str(_SELF_FOLLOW_CODE):
                 log.warning(f'skipping user {user_id}: cannot follow yourself (TwitterError {_SELF_FOLLOW_CODE})')
             elif '[108]' in str(e):
                 log.warning(f'cannot find specified user: {user_id}, skip synchronization')
