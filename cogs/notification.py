@@ -50,7 +50,7 @@ class Notification(Cog_Extension):
         image_quality='The image quality for photos in notifications (only applies to built-in embed).',
         account_used=t('commands.add.notifier.params.account_used'),
     )
-    async def notifier(self, itn: discord.Interaction, username: str, channel: discord.TextChannel | discord.Thread, mention: discord.Role = None, enable_type: str = '11', media_type: str = '11', image_quality: str = 'orig', account_used: str = list(get_accounts().keys())[0]):
+    async def notifier(self, itn: discord.Interaction, username: str, channel: discord.TextChannel | discord.Thread, mention: discord.Role = None, enable_type: str = '11', media_type: str = '11', image_quality: str = None, account_used: str = list(get_accounts().keys())[0]):
         """Add a twitter user to specific channel on your server.
 
         Parameters
@@ -123,7 +123,7 @@ class Notification(Cog_Extension):
                             await db.execute('BEGIN')
                             await cursor.execute('INSERT INTO user (id, username, latest_tweet, client_used) VALUES (?, ?, ?, ?)', (str(new_user.id), new_user.username, get_utcnow(), account_used))
                             await cursor.execute('INSERT OR IGNORE INTO channel VALUES (?, ?)', (str(channel.id), server_id))
-                            await cursor.execute('INSERT INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (str(new_user.id), str(channel.id), roleID, enable_type, media_type, image_quality))
+                            await cursor.execute('INSERT INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (str(new_user.id), str(channel.id), roleID, enable_type, media_type, image_quality or 'orig'))
                             await db.commit()
                     else:
                         async with lock:
@@ -136,6 +136,10 @@ class Notification(Cog_Extension):
                                 await cursor.execute('UPDATE user SET client_used = ? WHERE id = ?', (account_used, match_user['id']))
                             
                             await cursor.execute('INSERT OR IGNORE INTO channel VALUES (?, ?)', (str(channel.id), server_id))
+                            if image_quality is None:
+                                await cursor.execute('SELECT image_quality FROM notification WHERE user_id = ? AND channel_id = ?', (match_user['id'], str(channel.id)))
+                                existing = await cursor.fetchone()
+                                image_quality = (existing['image_quality'] if existing else None) or 'orig'
                             await cursor.execute('REPLACE INTO notification (user_id, channel_id, role_id, enable_type, enable_media_type, image_quality) VALUES (?, ?, ?, ?, ?, ?)', (match_user['id'], str(channel.id), roleID, enable_type, media_type, image_quality))
                             
                             if match_user['enabled'] == 0:
