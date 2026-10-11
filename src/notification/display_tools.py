@@ -7,7 +7,9 @@ from tweety.types import Tweet
 from core.classes import ParsedTweet
 from configs.load_configs import configs, FX_SETTINGS
 from src.i18n import t
-from src.utils import escape_markdown
+from src.utils import escape_markdown, safe_truncate
+
+DISCORD_EMBED_DESCRIPTION_LIMIT = 4096
 
 
 def _md_escape_label(s: str | None) -> str:
@@ -49,7 +51,11 @@ def gen_embed(tweet: Tweet, parsed_tweet: ParsedTweet, quality: str = 'orig') ->
     open_tweet = f'[Open Tweet]({tweet.url})'
     author_link = f'[@{_md_escape_label(author.username)}](https://twitter.com/{author.username})'
     link_line = f'{open_tweet} | {author_link}'
-    description = f'{description}\n\n{link_line}' if description else link_line
+    if description:
+        description, _ = safe_truncate(description, DISCORD_EMBED_DESCRIPTION_LIMIT - len(link_line) - 2)
+        description = f'{description}\n\n{link_line}'
+    else:
+        description = link_line
 
     embed = discord.Embed(title=title, description=description, url=tweet.url, color=0x1da0f2, timestamp=tweet.created_on)
     embed.set_author(name=f'{author.name} (@{author.username})', icon_url=author.profile_image_url_https, url=f'https://twitter.com/{author.username}')
