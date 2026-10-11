@@ -74,7 +74,9 @@ def gen_embed(tweet: Tweet, parsed_tweet: ParsedTweet, quality: str = 'orig') ->
 
     # Media field (only if media exists)
     media = parsed_tweet.media
-    if media.length > 1:
+    if media.length > 1 and (getattr(parsed_tweet, 'is_mixed', False) or media.type != 'photo'):
+        media_value = f'🗂️ {media.length} 個媒體'
+    elif media.length > 1:
         media_value = f'🖼️ {media.length} 張圖片'
     elif media.length == 1 and media.type == 'video':
         media_value = '🎬 影片'
