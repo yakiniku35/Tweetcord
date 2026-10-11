@@ -1,4 +1,5 @@
 import re
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import discord
 from tweety.types import Tweet
@@ -21,7 +22,10 @@ def _get_media_url(media_url: str, quality: str) -> str:
     """Apply Twitter image quality parameter to a pbs.twimg.com media URL; leave other URLs untouched."""
     if not media_url or 'pbs.twimg.com/media/' not in media_url:
         return media_url
-    return f"{media_url.split('?', 1)[0]}?name={quality}"
+    parts = urlsplit(media_url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != 'name']
+    query.append(('name', quality))
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 def gen_embed(tweet: Tweet, parsed_tweet: ParsedTweet, quality: str = 'orig') -> list[discord.Embed]:
