@@ -6,6 +6,6 @@ WORKDIR /bot
 COPY requirements.txt /bot/
 RUN pip install -r requirements.txt
 RUN pip install --no-cache-dir --upgrade --force-reinstall \
-    git+https://github.com/mahrtayyab/tweety.git
+    git+https://github.com/Yuuzi261/tweety.git@aa2067dab80c941f1193c68bcc6d7c6863304479
 COPY . /bot
 CMD ["python", "bot.py"]
