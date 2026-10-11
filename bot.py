@@ -23,22 +23,26 @@ if not build_and_validate_configs():
 
 # --- Configs are now safe to load ---
 from configs.load_configs import configs
+from src.i18n import init_i18n
 from src.db_function.init_db import init_db, migrate_db
 from src.db_function.repair_db import auto_repair_mismatched_clients
 from src.presence_updater import update_presence
 
+init_i18n(configs.get('locale', 'en'))
 
-intents = discord.Intents(guilds=True, messages=True, message_content=True, emojis=True)
+intents = discord.Intents(
+    guilds=True,
+    messages=True,
+    message_content=configs.get('enable_prefix_commands_in_guild', True),
+    emojis=True
+)
 bot = commands.Bot(command_prefix=configs['prefix'], intents=intents)
 
 
 @bot.event
 async def on_ready():
-    if not (os.path.isfile(os.path.join(os.getenv('DATA_PATH'), 'tracked_accounts.db'))):
-        await init_db()
-    else:
-        await migrate_db()
-        
+    await init_db()
+    await migrate_db()
     check_upgrade()
         
     invalid_clients = await check_db()

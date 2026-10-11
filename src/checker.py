@@ -12,6 +12,14 @@ VALID_PROXY_SERVICES = {
     'vx': ['vxtwitter', 'fixvx']
 }
 
+ALLOW_FLOAT_CONFIGS = {
+    'tweets_check_period',
+    'tweets_updater_retry_delay',
+    'tasks_monitor_check_period',
+    'tasks_monitor_log_period',
+    'notification_retry_delay',
+}
+
 
 def build_and_validate_configs():
     try:
@@ -52,6 +60,10 @@ def build_and_validate_configs():
 
             # --- Start Validation ---
             is_valid = True
+            if type(user_value) is not type(default_value):
+                if current_path not in ALLOW_FLOAT_CONFIGS or type(user_value) not in (int, float):
+                    is_valid = False
+            
             if current_path == 'users_list_page_counter_position' and user_value not in ['title', 'footer']:
                 is_valid = False
             elif current_path == 'embed.type' and user_value not in ['built_in', 'proxy']:
@@ -78,10 +90,10 @@ def build_and_validate_configs():
         new_domain = valid_domains_for_service[0]
         log.warning(f"domain '{proxy_domain}' is invalid for service '{proxy_service}'. Falling back to a valid domain '{new_domain}'.")
         final_configs['embed']['proxy']['domain_name'] = new_domain
-        
-    if proxy_service != 'fx':
+    
+    if final_configs['embed']['type'] == 'proxy' and final_configs['embed']['proxy']['auto_translation'] and proxy_service != 'fx':
         log.warning(f"service '{proxy_service}' is not support for auto translation, disabling auto translation")
-        final_configs['embed']['proxy']['auto_translation']['enabled'] = False
+        final_configs['embed']['proxy']['auto_translation'] = False
 
     try:
         os.makedirs('configs', exist_ok=True)

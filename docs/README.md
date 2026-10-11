@@ -16,7 +16,7 @@ A Discord Bot for Twitter Notifications
 
 ## 📝Introduction
 
-Tweetcord is a Discord bot that leverages the [tweety-ns module](https://github.com/mahrtayyab/tweety) to provide real-time tweet updates from specific Twitter users directly to your Discord server. Simply configure the Twitter users and Discord channels you want to monitor, and Tweetcord will automatically forward tweets to the designated channels, ensuring you never miss important updates.🐦
+Tweetcord is a Discord bot that leverages the [tweety-ns package](https://github.com/mahrtayyab/tweety) to provide real-time tweet updates from specific Twitter users directly to your Discord server. Simply configure the Twitter users and Discord channels you want to monitor, and Tweetcord will automatically forward tweets to the designated channels, ensuring you never miss important updates.🐦
 
 ## ✨Features
 
@@ -70,17 +70,18 @@ Tweetcord is a Discord bot that leverages the [tweety-ns module](https://github.
 
 - Sync the notification of new Twitter account with database.  If you change the twitter account used by bot, please use this command
 
-👉 `/customize message` `channel` `username` | `default`
+👉 `/customize settings` `channel` `username`
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `channel` | str | The channel id which set to delivers notifications |
-| `username` | str | The username of the twitter user you want to set customized message |
-| `default` | bool | Whether to use default setting _(default is false)_ |
+| `username` | str | The username of the twitter user you want to set customized settings |
+
+After sending the command, a settings panel will appear. Currently, you can modify `mention`, `type`, `media_type`, and custom notification messages. Note that `account_used` can still only be modified using the `/add notifier` command.
 
 Custom notification messages are in `f-string format`, currently supporting 4 special variables for use, which will be explained below.
 
-- `{action}` : poster's action, include `tweeted`, `retweeted` and `quoted`
+- `{action}` : poster's action (e.g. `tweeted`, `retweeted`, `quoted`). The displayed text depends on the `locale` setting in `configs.yml`
 - `{author}` : poster's display name
 - `{mention}` : the role to mention when sending to discord
 - `{url}` : the link of the tweet
@@ -106,13 +107,13 @@ https://twitter.com/nyachodayo/status/1869000108697960952
 | `username` | str | The username of the tracked account you want to set customized translation language |
 | `language` | str | The language code you want to translate to (e.g. en, ja), leave it empty to use default. |
 
-Note: You need to set `type` to `proxy` in the `embed` settings and set `enabled` to `true` for `auto_translation` to use this (currently only the `fx` embedding proxy service supports this setting).
+Note: You need to set `auto_translation` to `true` in the `embed` settings to use this (only available when the `embed.type` is set to `built_in` mode or when `fx` is chosen as the embedding proxy service in `proxy` mode; other embedding proxy services do not support this feature).
 
 </details>
 
 ## 📥Installation
 
-Before running the bot, you need to install the necessary modules.
+Before running the bot, you need to install the necessary packages.
 
 ```shell
 pip install -r requirements.txt
@@ -120,7 +121,7 @@ pip install -r requirements.txt
 
 ## ⚡Usage
 
-**📢This tutorial applies to version 0.5 or higher. For settings of older versions, please refer to the README files of the respective historical versions.**
+**📢This tutorial applies to version 0.7.3 or higher. For settings of older versions, please refer to the README files of the respective historical versions.**
 
 ### [⬆️View Version Upgrade Guides](./UPGRADE_GUIDE.md)
 
@@ -155,11 +156,14 @@ Create `configs.yml` and copy the contents of `configs.example.yml` into it, and
 
 | Parameter | Description | Restriction |
 |-----------|-------------|-------------|
+| `locale` | The language used for bot messages and command descriptions. | Currently supports `en` and `zh-TW`. |
 | `prefix` | The prefix for bot commands, only effective for prefix commands. | None, but recommended to choose a simple and easily identifiable prefix and avoid using empty strings. |
 | `activity_name` | The activity name displayed by the bot. | None. |
 | `activity_type` | The activity type displayed by the bot. | `playing`, `streaming`, `listening`, `watching` and `competing` only. |
 | `users_list_pagination_size` | `list users` command's pagination size. | Only accepts integers, and it is not recommended to use too large or too small values. |
 | `users_list_page_counter_position` | `list users` command's pagination counter position. | `title` and `footer` only. |
+| `enable_prefix_commands_in_guild` | Whether to enable prefix commands in the server (disabling this option only affects prefix commands and does not affect any features. You can still DM the bot to use prefix commands to upload/backup databases or download logs). If `false`, you can disable the Message Content Intent. | Boolean. |
+| `use_existing_sessions_first` | Whether to prioritize connecting to an existing saved session on startup before authenticating with the auth token. If the auth token in the environment variables is updated, the bot will automatically detect it and re-authenticate. | Boolean. |
 
 Custom activity name is in `f-string` format, currently supporting 1 special variable for use, which will be explained below.
 
@@ -173,6 +177,8 @@ Custom activity name is in `f-string` format, currently supporting 1 special var
 | `tweets_updater_retry_delay` | Retry Interval when Tweets Updater encounters exceptions. | minutes |
 | `tasks_monitor_check_period` | Interval at which to check if each tasks is functioning properly, and if a task has stopped, attempt a restart. | minutes |
 | `tasks_monitor_log_period` | Interval at which to output the list of currently running tasks to the execution log. | hours |
+| `notification_max_retries` | The maximum number of retry attempts when sending notification to Discord encounters transient errors (e.g. 503 Server Error, network timeout, connection reset). | times |
+| `notification_retry_delay` | The initial delay for exponential backoff between retry attempts when sending notification encounters transient errors (doubles after each failed retry). | seconds |
 | `auth_max_attempts` | The maximum number of attempts to log in to the Twitter account, if the number of failures exceeds this number, the bot will be forced to stop running. | times |
 
 #### Control Account Behavior
@@ -195,14 +201,23 @@ Custom activity name is in `f-string` format, currently supporting 1 special var
 | Parameter | Description |
 |-----------|-------------|
 | `type` | Determine the type of embed, supported types: `built_in` / `proxy`. |
+| `trans_default_lang` | The default language used for automatic translation when `auto_translation` is enabled. |
 
 ##### built_in:
 
 | Parameter | Description |
 |-----------|-------------|
-| `fx_image` | Whether to use FxTwitter's combined image when there are multiple images, friendly for iOS systems that cannot display multiple image embeddings. |
+| `fx` | Advanced settings for FixupX integration. The bot fetches new tweets from Twitter's notifications via Tweety. Since Twitter's notification API is older, there might be missing media and text for retweets and quoted tweets. By requesting from FixupX, more complete content can be obtained. When `media`, `rt_text` or `auto_translation` is enabled, an additional request to the FixupX API is made before sending each new tweet notification. If only `mosaic` is enabled independently, requests will only be made when necessary. See the detailed breakdown below. |
 | `video_link_button` | Determine whether to use a link button as a prompt when the media is a video. |
 | `legacy_logo` | If set to `true`, the footer will use Twitter's legacy bluebird logo instead of the new X emblem. |
+
+- **fx**
+  - `media.enabled`: Whether to fetch media within quoted tweets.
+  - `media.external`: Whether to fetch thumbnails from external links.
+  - `rt_text.enabled`: Whether to display the original text of quoted tweets. Enabling this will also show the full content for longer retweets.
+  - `rt_text.simplified`: Whether to simplify information when there is too much content (typically in quoted tweets). When enabled, it truncates part of the original quoted text for overly long messages and hides the thumbnail icon (right-side avatar) within the embed.
+  - `mosaic`: Whether to use FixupX's combined image when there are multiple images, friendly for iOS systems that cannot display multiple image embeddings.
+  - `auto_translation`: Whether to automatically translate tweet content to `trans_default_lang`.
 
 ##### proxy:
 
@@ -211,7 +226,7 @@ Custom activity name is in `f-string` format, currently supporting 1 special var
 | `service` | The embedding proxy service to use when sending tweet links, can be [`fx`](https://github.com/FxEmbed/FxEmbed) or [`vx`](https://github.com/dylanpdx/BetterTwitFix). |
 | `domain_name` | The domain name to be used when sending tweet links. When using the `fx` service, options are `fxtwitter` or `fixupx`. When using the `vx` service, options are `vxtwitter` or `fixvx`. |
 | `original_url_button` | Add a link button at the bottom of the message that directs to the original tweet. This can resolve the issue where clicking a proxy service URL does not open the app on certain devices. |
-| `auto_translation` | Auto-translation settings when sending tweet links. This is only available when using the `fx` service (it will be automatically disabled for other proxy services). `enabled` indicates whether to enable auto-translation, and `default_language` specifies the default translation language. For details, please refer to [Translate Posts (X/Twitter)](https://github.com/FxEmbed/FxEmbed?tab=readme-ov-file#translate-posts-xtwitter). |
+| `auto_translation` | Auto-translation settings when sending tweet links. This is only available when using the `fx` service (it will be automatically disabled for other proxy services). When enabled, the post will be translated to the language set in `trans_default_lang` by default. For details, please refer to [Translate Posts (X/Twitter)](https://docs.fxembed.com/guide/url-modifiers/translate). |
 
 > [!NOTE]
 > If you need support for more embedding proxy services, please let us know via an [Issue](https://github.com/Yuuzi261/Tweetcord/issues/new).
@@ -251,13 +266,12 @@ python bot.py
 |--------|-------------|
 | ❌  | Presence Intent |
 | ❌ | Server Members Intent |
-| ✔️ | Message Content Intent |
+| ⚠️ | Message Content Intent |
+
+If you disable `enable_prefix_commands_in_guild` in `configs.yml`, you can disable **Message Content Intent**. Otherwise, please enable it.
 
 > [!NOTE]
 > If you want to host the bot on a server, here is a recommended service that is basically free: [fly.io](https://fly.io) _(update: fly.io has stopped offering free plans to new users)_
-
-> [!TIP]
-> Alternatively, you can try this virtual hosting service provided by Taiwanese students: [FreeServer](https://freeserver.tw/index.html)
 
 <details>
    <summary><b>⚙️some configuration files you may need if you use fly.io</b></summary>
