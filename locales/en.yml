@@ -14,6 +14,11 @@ notification:
     settings:
       channel_not_found: "can't find channel {channel_id}!"
       notifier_not_found: "can't find notifier {username} in {channel_mention}!"
+    image_quality:
+      not_built_in: 'image quality setting only applies to built-in embed!'
+      channel_not_found: "can't find channel {channel_id}!"
+      success: 'successfully set image quality to `{quality}` for {username} in {channel_mention}!'
+      notifier_not_found: "can't find notifier {username} in {channel_mention}!"
     translation:
       not_enabled: 'translation is not enabled in configs!'
       invalid_lang: 'invalid language code!'
@@ -80,6 +85,18 @@ display:
   button:
     view_video: 'View Video'
     view_original: 'View Original'
+  field:
+    action: 'Action'
+    media: 'Media'
+    tweeted: '🐦 Tweet'
+    retweeted: '🔁 Retweet'
+    quoted: '💬 Quote'
+    photo: '🖼️ Photo'
+    photos: '🖼️ {count} photos'
+    video: '🎬 Video'
+    animated_gif: '🎞️ GIF'
+    multi_media: '🗂️ {count} media'
+    open_tweet: 'Open Tweet'
 
 commands:
   add:
@@ -93,6 +110,7 @@ commands:
         type: 'Whether to enable notifications for retweets & quotes.'
         media_type: 'Whether to enable notifications for All Tweets, Tweets with Media, or Tweets without Media Only.'
         account_used: 'The account used to deliver notifications.'
+        image_quality: 'The image quality for photos in notifications (only applies to built-in embed).'
       choices:
         enable_type:
           all_default: 'All (default)'
@@ -103,6 +121,11 @@ commands:
           all_default: 'All (default)'
           no_media: 'No Media'
           media_only: 'Media Only'
+        image_quality:
+          orig: 'Original (default)'
+          large: 'Large'
+          medium: 'Medium'
+          small: 'Small'
   remove:
     description: 'Remove something'
     notifier:

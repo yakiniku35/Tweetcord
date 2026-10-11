@@ -22,7 +22,7 @@ from src.presence_updater import update_presence
 log = setup_logger(__name__)
 lock = get_lock()
 
-IMAGE_QUALITY_CHOICES = [app_commands.Choice(name='Original (default)', value='orig'), app_commands.Choice(name='Large', value='large'), app_commands.Choice(name='Medium', value='medium'), app_commands.Choice(name='Small', value='small')]
+IMAGE_QUALITY_CHOICES = [app_commands.Choice(name=t(f'commands.add.notifier.choices.image_quality.{q}'), value=q) for q in ('orig', 'large', 'medium', 'small')]
 
 class Notification(Cog_Extension):
     def __init__(self, bot):
@@ -47,7 +47,7 @@ class Notification(Cog_Extension):
         mention=t('commands.add.notifier.params.mention'),
         enable_type=t('commands.add.notifier.params.type'),
         media_type=t('commands.add.notifier.params.media_type'),
-        image_quality='The image quality for photos in notifications (only applies to built-in embed).',
+        image_quality=t('commands.add.notifier.params.image_quality'),
         account_used=t('commands.add.notifier.params.account_used'),
     )
     async def notifier(self, itn: discord.Interaction, username: str, channel: discord.TextChannel | discord.Thread, mention: discord.Role = None, enable_type: str = '11', media_type: str = '11', image_quality: str = None, account_used: str = list(get_accounts().keys())[0]):
@@ -345,12 +345,12 @@ class Notification(Cog_Extension):
             The image quality for photos (orig, large, medium, small).
         """
         if configs['embed']['type'] != 'built_in':
-            await itn.response.send_message('image quality setting only applies to built-in embed!', ephemeral=True)
+            await itn.response.send_message(t('notification.customize.image_quality.not_built_in'), ephemeral=True)
             return
 
         channel = itn.guild.get_channel_or_thread(int(channel_id))
         if channel is None:
-            await itn.response.send_message(f'can\'t find channel {channel_id}!', ephemeral=True)
+            await itn.response.send_message(t('notification.customize.image_quality.channel_not_found', channel_id=channel_id), ephemeral=True)
             return
 
         await itn.response.defer(ephemeral=True)
@@ -367,9 +367,9 @@ class Notification(Cog_Extension):
                     async with lock:
                         await cursor.execute('UPDATE notification SET image_quality = ? WHERE user_id = ? AND channel_id = ?', (quality, match_notifier['user_id'], str(channel.id)))
                         await db.commit()
-                    await itn.followup.send(f'successfully set image quality to `{quality}` for {username} in {channel.mention}!', ephemeral=True)
+                    await itn.followup.send(t('notification.customize.image_quality.success', quality=quality, username=username, channel_mention=channel.mention), ephemeral=True)
                 else:
-                    await itn.followup.send(f'can\'t find notifier {username} in {channel.mention}!', ephemeral=True)
+                    await itn.followup.send(t('notification.customize.image_quality.notifier_not_found', username=username, channel_mention=channel.mention), ephemeral=True)
 
     @r_notifier.autocomplete('channel_id')
     async def get_channels_for_r_notifier(self, itn: discord.Interaction, input_channel: str) -> list[app_commands.Choice[str]]:        

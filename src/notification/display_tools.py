@@ -48,7 +48,7 @@ def gen_embed(tweet: Tweet, parsed_tweet: ParsedTweet, quality: str = 'orig') ->
     title = f'{author.name} (@{_md_escape_label(author.username)}) {get_action(tweet, disable_quoted=disable_quoted)}'
 
     # Description: tweet text + links
-    open_tweet = f'[Open Tweet]({tweet.url})'
+    open_tweet = f"[{t('display.field.open_tweet')}]({tweet.url})"
     author_link = f'[@{_md_escape_label(author.username)}](https://twitter.com/{author.username})'
     link_line = f'{open_tweet} | {author_link}'
     if description:
@@ -65,29 +65,29 @@ def gen_embed(tweet: Tweet, parsed_tweet: ParsedTweet, quality: str = 'orig') ->
 
     # Action field
     if tweet.is_retweet:
-        action_value = '🔁 轉推'
+        action_value = t('display.field.retweeted')
     elif tweet.is_quoted and not disable_quoted:
-        action_value = '💬 引用推文'
+        action_value = t('display.field.quoted')
     else:
-        action_value = '🐦 推文'
-    embed.add_field(name='動作', value=action_value, inline=True)
+        action_value = t('display.field.tweeted')
+    embed.add_field(name=t('display.field.action'), value=action_value, inline=True)
 
     # Media field (only if media exists)
     media = parsed_tweet.media
     if media.length > 1 and (getattr(parsed_tweet, 'is_mixed', False) or media.type != 'photo'):
-        media_value = f'🗂️ {media.length} 個媒體'
+        media_value = t('display.field.multi_media', count=media.length)
     elif media.length > 1:
-        media_value = f'🖼️ {media.length} 張圖片'
+        media_value = t('display.field.photos', count=media.length)
     elif media.length == 1 and media.type == 'video':
-        media_value = '🎬 影片'
+        media_value = t('display.field.video')
     elif media.length == 1 and media.type == 'animated_gif':
-        media_value = '🎞️ GIF'
+        media_value = t('display.field.animated_gif')
     elif media.length == 1:
-        media_value = '🖼️ 圖片'
+        media_value = t('display.field.photo')
     else:
         media_value = None
     if media_value:
-        embed.add_field(name='媒體', value=media_value, inline=True)
+        embed.add_field(name=t('display.field.media'), value=media_value, inline=True)
     
     if parsed_tweet.media.length == 1:
         embed.set_image(url=_get_media_url(parsed_tweet.media.urls[0], quality))
