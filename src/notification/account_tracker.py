@@ -181,6 +181,7 @@ class AccountTracker():
             for tweet in latest_tweets:
                 log.info(f'find a new tweet from {username}')
                 
+                parsed_cache: dict[str, ParsedTweet] = {}
                 content_cache: dict[tuple[str, str], tuple[list[discord.Embed], discord.ui.View, ParsedTweet]] = {}
                 
                 def gen_view(label: str, url: str):
@@ -205,7 +206,9 @@ class AccountTracker():
                         p_tweet, embeds = None, None
                         
                         if EMBED_TYPE == 'built_in':
-                            p_tweet = await get_parsed_tweet(tweet, self.session, lang=lang)
+                            if lang not in parsed_cache:
+                                parsed_cache[lang] = await get_parsed_tweet(tweet, self.session, lang=lang)
+                            p_tweet = parsed_cache[lang]
                             embeds = gen_embed(tweet, p_tweet, quality)
                             if view is None and p_tweet.media.type == 'video' and configs['embed']['built_in']['video_link_button']:
                                 button_url = p_tweet.media.video_link or tweet.url
